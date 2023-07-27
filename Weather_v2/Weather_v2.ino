@@ -1,11 +1,23 @@
-
+#include <WiFi.h>
+#include <PubSubClient.h>
 #include <SoftwareSerial.h>
 #include <string.h>
 #include "Adafruit_SI1145.h"
-Adafruit_SI1145 uv = Adafruit_SI1145();
-//  Sensor configuration
 
+
+Adafruit_SI1145 uv = Adafruit_SI1145();
 SoftwareSerial mySerial(16, 17); // RX, TX
+const char* ssid = "Fatlab";
+const char* password = "12345678@!D";
+// Add your MQTT Broker IP address, example:
+//const char* mqtt_server = "192.168.1.144";
+const char* mqtt_server = "localhost";
+WiFiClient espClient;
+PubSubClient client(espClient);
+long lastMsg = 0;
+char msg[50];
+int value = 0;
+
 
 char                 databuffer[35];
 double               temp;
@@ -109,12 +121,52 @@ void  counting(){
   
 }
 
+void setup_wifi() {
+  delay(10);
+  // We start by connecting to a WiFi network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("ESP8266Client")) {
+      Serial.println("connected");
+      // Subscribe
+      client.subscribe("esp32/output");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
 
 void setup()
 {
   Serial.begin(115200);
   attachInterrupt(33,counting,RISING);
   counter=0;
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
   if (! uv.begin()) {
     Serial.println("Didn't find Si1145");
     while (1);
@@ -123,40 +175,66 @@ void setup()
 }
 
 void loop()
-{
+{ 
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
   getBuffer();
-  Serial.print("Wind Direction: ");
-  Serial.print(WindDirection());
-  Serial.println("  ");
-  Serial.print("Average Wind Speed (One Minute): ");
-  Serial.print(WindSpeedAverage());
-  Serial.println("m/s  ");
-  Serial.print("Max Wind Speed (Five Minutes): ");
-  Serial.print(WindSpeedMax());
-  Serial.println("m/s");
-  Serial.print("Rain Fall (One Hour): ");
-  Serial.print(RainfallOneHour());
-  Serial.println("mm  ");
-  Serial.print("Rain Fall (24 Hour): ");
-  Serial.print(RainfallOneDay());
-  Serial.println("mm");
-  Serial.print("Temperature: ");
-  Serial.print(Temperature());
-  Serial.println("C  ");
-  Serial.print("Humidity: ");
-  Serial.print(Humidity());
-  Serial.println("%  ");
-  Serial.print("Barometric Pressure: ");
-  Serial.print(BarPressure());
-  Serial.println("hPa");
-  Serial.println("");
-  Serial.println("");
+  
+  float temperature = Temperature();
+  char tempString[8];
+  dtostrf(temperature, 1, 2, tempString);
+  client.publish("esp32/temperature", tempString);
+
+  float windD = WindDirection();
+  char windDString[8];
+  dtostrf(windD, 1, 2, windDString);
+  client.publish("esp32/winddirection", windDString);
+    
+  float windS = WindSpeedAverage();
+  char windSString[8];
+  dtostrf(windS, 1, 2, windSString);
+  client.publish("esp32/windspeed", windSString);
+
+  float rain1H = RainfallOneHour();
+  char rain1HString[8];
+  dtostrf(rain1H, 1, 2, rain1HString);
+  client.publish("esp32/rain1H", rain1HString);
+
+
+  float rain1D = RainfallOneDay();
+  char rain1DString[8];
+  dtostrf(rain1D, 1, 2, rain1DString);
+  client.publish("esp32/rain1H", rain1DString);
+
+  float barPress = BarPressure();
+  char barPString[8];
+  dtostrf(barPress, 1, 2, barPString);
+  client.publish("esp32/barP", barPString);
+  
   float UVindex = uv.readUV();
   // the index is multiplied by 100 so to get the
   // integer index, divide by 100!
   UVindex /= 100.0; 
-  Serial.print("Vis: "); Serial.println(uv.readVisible());
-  Serial.print("IR: "); Serial.println(uv.readIR());
-  Serial.print("UV: ");  Serial.println(UVindex);
+  
+  float Vis = uv.readVisible();
+  char VisString[8];
+  dtostrf(Vis, 1, 2, VisString);
+  client.publish("esp32/Vis", VisString);
+
+  float IR = uv.readIR();
+  char IRString[8];
+  dtostrf(IR, 1, 2, IRString);
+  client.publish("esp32/IR", IRString);
+
+  float UV = uv.readUV();
+  char UVString[8];
+  dtostrf(UV, 1, 2, UVString);
+  client.publish("esp32/UV", UVString);
+
+  char countString[8];
+  dtostrf(counter, 1, 2, countString);
+  client.publish("esp32/counter", countString);
   Serial.println(counter);
 }
