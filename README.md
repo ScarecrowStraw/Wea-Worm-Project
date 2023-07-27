@@ -8,7 +8,7 @@ Weather Station and Worm Counting
   _ Open the Boards Manager:<br>
     _ You can go to Tools > Board > Boards Manager…<br>
     _ Search for ESP32 and press the install button for esp32 by Arduino.<br>
-2. Add SorfwareSerial Lib:<br>
+2. Add SoftwareSerial Lib:<br>
   _ In the menu bar, select Sketchs > Include Library > Add .Zip Library...<br>
   _ Select espsoftwareserial-main.zip in Libs folder.<br>
 3. Add GY1145 Libs:<br>
