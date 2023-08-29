@@ -8,10 +8,11 @@
 Adafruit_SI1145 uv = Adafruit_SI1145();
 SoftwareSerial mySerial(16, 17); // RX, TX
 const char* ssid = "Fatlab";
-const char* password = "12345678@!D";
+const char* password = "12345678@!";
 // Add your MQTT Broker IP address, example:
 //const char* mqtt_server = "192.168.1.144";
-const char* mqtt_server = "localhost";
+const char* mqtt_server = "192.168.1.113";
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
@@ -22,8 +23,8 @@ int value = 0;
 char                 databuffer[35];
 double               temp;
 volatile int counter;
-
-void getBuffer()                                                                    //Get weather status data
+//-------------------------------------------------------
+void getBuffer()      //Get weather status data
 {
   int index;
   for (index = 0; index < 35; index ++)
@@ -42,7 +43,7 @@ void getBuffer()                                                                
     }
   }
 }
-
+//-------------------------------------------------------
 int transCharToInt(char *_buffer, int _start, int _stop)                             //char to int）
 {
   int _index;
@@ -56,7 +57,7 @@ int transCharToInt(char *_buffer, int _start, int _stop)                        
   }
   return result;
 }
-
+//-------------------------------------------------------
 int transCharToInt_T(char *_buffer)
 {
   int result = 0;
@@ -68,59 +69,59 @@ int transCharToInt_T(char *_buffer)
   }
   return result;
 }
-
+//-------------------------------------------------------
 int WindDirection()                                                                  //Wind Direction
 {
   return transCharToInt(databuffer, 1, 3);
 }
-
+//-------------------------------------------------------
 float WindSpeedAverage()                                                             //air Speed (1 minute)
 {
   temp = 0.44704 * transCharToInt(databuffer, 5, 7);
   return temp;
 }
-
+//-------------------------------------------------------
 float WindSpeedMax()                                                                 //Max air speed (5 minutes)
 {
   temp = 0.44704 * transCharToInt(databuffer, 9, 11);
   return temp;
 }
-
+//-------------------------------------------------------
 float Temperature()                                                                  //Temperature ("C")
 {
   temp = (transCharToInt_T(databuffer) - 32.00) * 5.00 / 9.00;
   return temp;
 }
-
+//-------------------------------------------------------
 float RainfallOneHour()                                                              //Rainfall (1 hour)
 {
   temp = transCharToInt(databuffer, 17, 19) * 25.40 * 0.01;
   return temp;
 }
-
+//-------------------------------------------------------
 float RainfallOneDay()                                                               //Rainfall (24 hours)
 {
   temp = transCharToInt(databuffer, 21, 23) * 25.40 * 0.01;
   return temp;
 }
-
+//-------------------------------------------------------
 int Humidity()                                                                       //Humidity
 {
   return transCharToInt(databuffer, 25, 26);
 }
-
-float BarPressure()                                                                  //Barometric Pressure
+//-------------------------------------------------------
+float BarPressure()              //Barometric Pressure
 {
   temp = transCharToInt(databuffer, 28, 32);
   return temp / 10.00;
 }
-
+//-------------------------------------------------------
 void  counting(){
   counter+=1;
   //Serial.println(counter);
   
 }
-
+//-------------------------------------------------------
 void setup_wifi() {
   delay(10);
   // We start by connecting to a WiFi network
@@ -140,7 +141,7 @@ void setup_wifi() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 }
-
+//-------------------------------------------------------
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
@@ -159,7 +160,7 @@ void reconnect() {
     }
   }
 }
-
+//-------------------------------------------------------
 void setup()
 {
   Serial.begin(115200);
@@ -173,19 +174,17 @@ void setup()
   }
   mySerial.begin(9600);
 }
-
-void loop()
-{ 
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
-  getBuffer();
-  
+//-------------------------------------------------------
+void ReadAndPublishData(){
   float temperature = Temperature();
   char tempString[8];
   dtostrf(temperature, 1, 2, tempString);
   client.publish("esp32/temperature", tempString);
+
+  float humid = Humidity();
+  char humidString[8];
+  dtostrf(humid, 1, 2, humidString);
+  client.publish("esp32/humidity", humidString);
 
   float windD = WindDirection();
   char windDString[8];
@@ -238,3 +237,17 @@ void loop()
   client.publish("esp32/counter", countString);
   Serial.println(counter);
 }
+//-------------------------------------------------------
+// Main programe
+void loop()
+{ 
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  getBuffer();
+  
+  ReadAndPublishData();
+  delay(1000);
+}
+//-------------------------------------------------------
