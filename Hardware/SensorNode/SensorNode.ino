@@ -205,7 +205,7 @@ void ReadAndPublishData(){
   float rain1D = RainfallOneDay();
   char rain1DString[8];
   dtostrf(rain1D, 1, 2, rain1DString);
-  client.publish("esp32/rain1H", rain1DString);
+  client.publish("esp32/rain1D", rain1DString);
 
   float barPress = BarPressure();
   char barPString[8];
