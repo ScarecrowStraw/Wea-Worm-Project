@@ -7,7 +7,12 @@ from weather_call import visualAPI, geocodingAPI
 import sys
 import os
 from dotenv import load_dotenv
+import paho.mqtt.client as mqtt
 
+#MQTT_ADDRESS = "mqtt-dashboard.com"
+MQTT_HOST = '192.168.1.113'
+MQTT_PORT = 1883
+MQTT_TOPIC = "predictor"
 
 global weather_table
 
@@ -26,14 +31,14 @@ location = "vinhyen"
 cur_age = 8
 content_type = 'csv'
 base_url = 'https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/'
-api_key = os.environ.get("VISUALCROSSING_KEY")
+api_key = "C55GZYC8HWA27U2JZWVJR8794"
 include = "days"
 end_date = str(datetime.date.today() + datetime.timedelta(14))
 # end_date = str('2020-12-01')
 unit_group = 'metric'
 
 open_weather_url = "https://pro.openweathermap.org/data/2.5/forecast/climate?"
-api_open_weather_key = os.environ.get("OPENWEATHER_KEY")
+api_open_weather_key = "c1283cdd33db35b96f9bb34f676e72e3"
 forecast_data = None
 
 DEVELOPEMENT_STAGE = [
@@ -52,6 +57,14 @@ faw_table = [[], []]
     #     if i > 0 and i < NUM_STAGE - 1: 
     #         faw_table[1][i] += faw_table[1][i - 1]
 
+def on_connect(client, userdata, flags, rc):
+    """ The callback for when the client receives a CONNACK response from the server."""
+    print('Connected with result code ' + str(rc))
+    client.subscribe(MQTT_TOPIC)
+
+def on_message(client, userdata, msg):
+    """The callback for when a PUBLISH message is received from the server."""
+    print(msg.topic + ' ' + str(msg.payload))
 
 def convert_str_to_time(query_time):
     arr = query_time.split('-')
@@ -84,6 +97,8 @@ class FAWPrediction():
         cur_k = 0
         dev_time = 0
         dev_day = self.cur_date
+        pre_ans = []
+        pre_day = []
 
         if(age == NUM_STAGE):
             age = 0
@@ -94,6 +109,8 @@ class FAWPrediction():
                 sys.exit()
             cur_k = max(get_tempurature(dev_day) - faw_table[0][0], 0)
             print(DEVELOPEMENT_STAGE[0], (dev_day))
+            pre_ans.append(DEVELOPEMENT_STAGE[0])
+            pre_day.append(dev_day)
 
         if (age > 0): 
             tmp_var = faw_table[1][age - 1]
@@ -109,8 +126,10 @@ class FAWPrediction():
             if(cur_k > faw_table[1][age]):
                 temp_day = dev_day + datetime.timedelta(dev_time)
                 print(DEVELOPEMENT_STAGE[age + 1], temp_day)
+                pre_ans.append(DEVELOPEMENT_STAGE[0])
+                pre_day.append(dev_day)
                 age = age + 1
-        return
+        return pre_ans, pre_day 
     
     def calculate_mode_regression(self):
         
@@ -127,6 +146,8 @@ class FAWPrediction():
                 ans -= sub
                 return ans
         
+        pre_ans = []
+        pre_day = []
         dev_time = 3
         age = self.cur_age
         cnt = 0
@@ -134,15 +155,25 @@ class FAWPrediction():
         if(age == NUM_STAGE):
             dev_day += datetime.timedelta(dev_time)
             print(DEVELOPEMENT_STAGE[0], dev_day)
+            pre_ans.append(DEVELOPEMENT_STAGE[0])
+            pre_day.append(dev_day)
             age = 0
         for i in range(age, NUM_STAGE):
             dev_time = calculate_dev_time(i, get_tempurature(dev_day))
             dev_day += datetime.timedelta(dev_time)
             print(DEVELOPEMENT_STAGE[i + 1], dev_day)
-        return    
-
+            pre_ans.append(DEVELOPEMENT_STAGE[i+1])
+            pre_day.append(dev_day)
+        return pre_ans, pre_day   
 
 if __name__ == "__main__":
+
+    #connect MQTT
+    mqtt_client = mqtt.Client()
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_message = on_message
+    mqtt_client.connect(MQTT_HOST,MQTT_PORT)
+
     # create_faw_table()
 
     with open("data/faw_data.csv", newline="") as faw_file:
@@ -176,12 +207,21 @@ if __name__ == "__main__":
     weather_table = weather_table_api.run_api()
     # weather_table = pd.read_csv("data/weather_data.csv")
     
-    # forecast_data = geocodingAPI(open_weather_url, api_open_weather_key, location)
-    # forecast_data.create_api()
-    # forecast_data.load_api()
+    forecast_data = geocodingAPI(open_weather_url, api_open_weather_key, location)
+    forecast_data.create_api()
+    forecast_data.load_api()
     
+    tmp_ans = ""
     calculate = FAWPrediction(start_date, cur_age)
     if (cal_mode == "regression"):
-        calculate.calculate_mode_regression()
+        res_pd, res_day = calculate.calculate_mode_regression()
+        for i in range(len(res_pd)):
+            tmp_ans += res_pd[i] + " " + res_day[i].strftime("%Y-%m-%d") + "/"
+        mqtt_client.publish(MQTT_TOPIC,tmp_ans)
     else:
-        calculate.calculate_mode_lookup()
+        res_pd, res_day = calculate.calculate_mode_lookup()
+        for i in range(len(res_pd)):
+            tmp_ans += res_pd[i] + " " + res_day[i].strftime("%Y-%m-%d") + "/"
+        mqtt_client.publish(MQTT_TOPIC,tmp_ans)
+
+
