@@ -232,6 +232,7 @@ void ReadAndPublishData(){
   dtostrf(UV, 1, 2, UVString);
   client.publish("esp32/UV", UVString);
 
+  counter = counting();
   char countString[8];
   dtostrf(counter, 1, 2, countString);
   client.publish("esp32/counter", countString);
