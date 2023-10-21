@@ -2,13 +2,6 @@
 
 Weather Station and Faw Counting 
 
-## TODO List:
-
-- [ ] MongoDB Client (store and query data api)
-- [ ] FawPredict (predict faw warning level and publish to MQTT)
-- [ ] Connect to Node-RED
-- [ ] Complete README.md 
-
 ## Table of Contents <a name="top"></a>
 
 1. [System Overview](#overview)
@@ -78,15 +71,16 @@ Rename your folder from pubsubclient-master to pubsubclient. <br>
 | SDA  | x | SDA | x |
 | GPIO33  | x | x | OUT |
 
-### Upload code for ESP32:
+### Upload code for ESP32: weatherv6
 
-[Code](./Hardware/SensorNode/SensorNode.ino)
 ## 2.2. Software <a name="software"></a>
 
 ### 2.2.1. Node-RED <a name="node-red"></a>
 
 1. Install Node-RED: [Click here](https://nodered.org/docs/getting-started/local)
 2. Import [flows.json](./Software/Node-RED/flows.json) to Node-RED
+3. Open terminal: Run command: node-red and open link local server.
+   
 ### 2.2.2. MongoDB Client <a name="mongodb-client"></a>
 
 1. `cd Software/MongoDBClient`
